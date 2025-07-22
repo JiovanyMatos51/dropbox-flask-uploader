@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import requests
 import os
+import json
 
 app = Flask(__name__)
 
@@ -16,6 +17,10 @@ def upload():
     file = request.files["file"]
     filename = request.form["filename"]
 
+    print(f"[+] Recebido arquivo: {filename}, tamanho: {len(file.read())}")
+    file.seek(0)  # Necessário para o próximo .read()
+
+    # Obter access token
     token_resp = requests.post("https://api.dropboxapi.com/oauth2/token", data={
         "grant_type": "refresh_token",
         "refresh_token": REFRESH_TOKEN,
@@ -24,6 +29,7 @@ def upload():
     })
 
     if token_resp.status_code != 200:
+        print("[-] Falha ao obter token:", token_resp.text)
         return jsonify({"error": "Erro ao obter access token", "detalhes": token_resp.text}), 500
 
     access_token = token_resp.json().get("access_token")
@@ -33,15 +39,17 @@ def upload():
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/octet-stream",
-        "Dropbox-API-Arg": str({
+        "Dropbox-API-Arg": json.dumps({
             "path": f"/{filename}",
             "mode": "add",
             "autorename": True,
             "mute": False
-        }).replace("'", '"')
+        })
     }
 
     upload_resp = requests.post("https://content.dropboxapi.com/2/files/upload", headers=headers, data=file.read())
+    print("[Dropbox]", upload_resp.status_code, upload_resp.text)
+
     if upload_resp.status_code == 200:
         return jsonify({"sucesso": True}), 200
     else:
