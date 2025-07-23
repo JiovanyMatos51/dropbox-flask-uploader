@@ -1,6 +1,0 @@
-services:
-  - type: web
-    name: dropbox-uploader
-    env: python
-    buildCommand: ""
-    startCommand: "python server.py"
